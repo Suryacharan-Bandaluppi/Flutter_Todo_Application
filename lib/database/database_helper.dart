@@ -9,6 +9,7 @@ class DatabaseHelper {
   late final RealmService realmService;
 
   DatabaseHelper._init() {
+
     realmService = RealmService();
   }
 
