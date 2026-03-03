@@ -37,7 +37,8 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
     for (final tagName in defaultTagNames) {
       final exists = vm.tags.any((tag) => tag.name.toLowerCase() == tagName);
       if (!exists) {
-        await vm.repository.dbHelper.insertTag(Tag(name: tagName));
+        final newTag = Tag(name: tagName);
+        await vm.repository.insertTag(newTag);
       }
     }
 
@@ -85,7 +86,6 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                 const Text("New Task", style: AppTheme.headingStyle),
                 const SizedBox(height: 20),
 
-                /// TITLE
                 TextFormField(
                   controller: _titleController,
                   style: const TextStyle(color: AppTheme.textWhite),
@@ -100,7 +100,6 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                 ),
                 const SizedBox(height: 20),
 
-                /// DESCRIPTION
                 TextFormField(
                   controller: _descriptionController,
                   style: const TextStyle(color: AppTheme.textWhite),
@@ -109,11 +108,7 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                 ),
                 const SizedBox(height: 20),
 
-                /// TAGS
-                const Text(
-                  "Tags",
-                  style: TextStyle(color: AppTheme.textWhite70),
-                ),
+                const Text("Tags", style: AppTheme.bodyStyle),
                 const SizedBox(height: 10),
 
                 Wrap(
@@ -151,7 +146,6 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
 
                 const SizedBox(height: 15),
 
-                /// CREATE NEW TAG
                 Row(
                   children: [
                     Expanded(
@@ -171,7 +165,6 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                               .trim()
                               .toLowerCase();
 
-                          // Check if tag already exists (case-insensitive)
                           final existingTag = vm.tags.firstWhere(
                             (tag) => tag.name.toLowerCase() == tagName,
                             orElse: () => Tag(name: ''),
@@ -193,7 +186,7 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                           } else {
                             // Create new tag
                             final newTag = Tag(name: tagName);
-                            await vm.repository.dbHelper.insertTag(newTag);
+                            await vm.repository.insertTag(newTag);
                             await vm.loadTags();
 
                             // Auto-select the newly created tag
@@ -212,11 +205,7 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
 
                 const SizedBox(height: 20),
 
-                /// DEADLINE
-                const Text(
-                  "Deadline",
-                  style: TextStyle(color: AppTheme.textWhite70),
-                ),
+                const Text("Deadline", style: AppTheme.bodyStyle),
                 const SizedBox(height: 10),
                 GestureDetector(
                   onTap: () async {
@@ -268,7 +257,6 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
 
                 const SizedBox(height: 30),
 
-                /// BUTTONS
                 Row(
                   children: [
                     Expanded(
@@ -276,7 +264,10 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                         onPressed: () {
                           Navigator.pop(context);
                         },
-                        child: const Text("Cancel"),
+                        child: const Text(
+                          "Cancel",
+                          style: TextStyle(color: AppTheme.textWhite),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 15),
@@ -291,7 +282,9 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                               deadline: _selectedDeadline,
                             );
 
-                            Navigator.pop(context);
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                            }
                           }
                         },
                         child: const Text(

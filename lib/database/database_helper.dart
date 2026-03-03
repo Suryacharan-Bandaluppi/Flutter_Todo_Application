@@ -1,191 +1,123 @@
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
+import 'package:realm/realm.dart';
 import '../models/task.dart';
 import '../models/tag.dart';
+import 'realm_services.dart';
+import 'realm_models.dart' as realm_db;
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
-  static Database? _database;
+  late final RealmService realmService;
 
-  DatabaseHelper._init();
-
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB('todo.db');
-    return _database!;
+  DatabaseHelper._init() {
+    realmService = RealmService();
   }
 
-  Future<Database> _initDB(String filePath) async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
-
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: _createDB,
-      onConfigure: (db) async {
-        await db.execute('PRAGMA foreign_keys = ON');
-      },
-    );
-  }
-
-  Future _createDB(Database db, int version) async {
-    // Tasks table
-    await db.execute('''
-      CREATE TABLE tasks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        description TEXT,
-        created_at TEXT NOT NULL,
-        deadline TEXT
-      )
-    ''');
-
-    // Tags table
-    await db.execute('''
-      CREATE TABLE tags (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE
-      )
-    ''');
-
-    // Junction table
-    await db.execute('''
-      CREATE TABLE task_tags (
-        task_id INTEGER,
-        tag_id INTEGER,
-        PRIMARY KEY (task_id, tag_id),
-        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-        FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-      )
-    ''');
-  }
+  Realm get realm => realmService.realm;
 
   // TAG OPERATIONS
-  Future<int> insertTag(Tag tag) async {
-    final db = await instance.database;
-    return await db.insert(
-      'tags',
-      tag.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
+  Future<ObjectId> insertTag(Tag tag) async {
+    final realmTag = tag.toRealm();
+    realm.write(() {
+      realm.add(realmTag);
+    });
+    return realmTag.id;
   }
 
   Future<List<Tag>> getAllTags() async {
-    final db = await instance.database;
-    final result = await db.query('tags');
-    return result.map((map) => Tag.fromMap(map)).toList();
+    final realmTags = realm.all<realm_db.Tag>().toList();
+    return realmTags.map((t) => Tag.fromRealm(t)).toList();
   }
 
   // DELETE TAG
-  Future<void> deleteTag(int tagId) async {
-    final db = await instance.database;
-    await db.delete('tags', where: 'id = ?', whereArgs: [tagId]);
+  Future<void> deleteTag(ObjectId tagId) async {
+    final tag = realm.find<realm_db.Tag>(tagId);
+    if (tag != null) {
+      realm.write(() {
+        realm.delete(tag);
+      });
+    }
   }
 
   Future<void> deleteAllTags() async {
-    final db = await instance.database;
-    await db.delete('tags'); // Deletes all rows
+    final tags = realm.all<realm_db.Tag>();
+    realm.write(() {
+      realm.deleteMany(tags);
+    });
   }
 
   // TASK OPERATIONS
-  Future<int> insertTask(Task task) async {
-    final db = await instance.database;
-    return await db.insert('tasks', task.toMap());
+  Future<ObjectId> insertTask(Task task) async {
+    final realmTask = task.toRealm();
+    realm.write(() {
+      realm.add(realmTask);
+    });
+    return realmTask.id;
   }
 
-  Future<void> insertTaskTag(int taskId, int tagId) async {
-    final db = await instance.database;
-    await db.insert('task_tags', {'task_id': taskId, 'tag_id': tagId});
-  }
-
-  // Fetch tasks with tags (JOIN)
-  Future<List<Task>> getTasksWithTags() async {
-    final db = await instance.database;
-
-    final taskMaps = await db.query('tasks');
-
-    List<Task> tasks = [];
-
-    for (var taskMap in taskMaps) {
-      final taskId = taskMap['id'] as int;
-
-      final tagMaps = await db.rawQuery(
-        '''
-        SELECT tags.id, tags.name
-        FROM tags
-        INNER JOIN task_tags
-        ON tags.id = task_tags.tag_id
-        WHERE task_tags.task_id = ?
-      ''',
-        [taskId],
-      );
-
-      List<Tag> tags = tagMaps.map((map) => Tag.fromMap(map)).toList();
-
-      tasks.add(Task.fromMap(taskMap).copyWith(tags: tags));
+  Future<void> insertTaskTag(ObjectId taskId, ObjectId tagId) async {
+    final task = realm.find<realm_db.Task>(taskId);
+    final tag = realm.find<realm_db.Tag>(tagId);
+    if (task != null && tag != null) {
+      realm.write(() {
+        if (!task.tags.contains(tag)) {
+          task.tags.add(tag);
+        }
+      });
     }
+  }
 
-    return tasks;
+  // Fetch tasks with tags
+  Future<List<Task>> getTasksWithTags() async {
+    final realmTasks = realm.all<realm_db.Task>().toList();
+    return realmTasks.map((t) => Task.fromRealm(t)).toList();
   }
 
   // DELETE TASK
-  Future<void> deleteTask(int taskId) async {
-    final db = await instance.database;
-    await db.delete('tasks', where: 'id = ?', whereArgs: [taskId]);
+  Future<void> deleteTask(ObjectId taskId) async {
+    final task = realm.find<realm_db.Task>(taskId);
+    if (task != null) {
+      realm.write(() {
+        realm.delete(task);
+      });
+    }
   }
 
   // SEARCH TASKS
-  Future<List<Task>> searchTasks({String? query, List<int>? tagIds}) async {
-    final db = await instance.database;
+  Future<List<Task>> searchTasks({
+    String? query,
+    List<ObjectId>? tagIds,
+  }) async {
+    var realmTasks = realm.all<realm_db.Task>().toList();
 
-    String whereClause = "";
-    List<dynamic> whereArgs = [];
-
+    // Filter by query
     if (query != null && query.isNotEmpty) {
-      whereClause += "(tasks.title LIKE ? OR tasks.description LIKE ?)";
-      whereArgs.add("%$query%");
-      whereArgs.add("%$query%");
+      final lowerQuery = query.toLowerCase();
+      realmTasks = realmTasks.where((task) {
+        return task.title.toLowerCase().contains(lowerQuery) ||
+            task.description.toLowerCase().contains(lowerQuery);
+      }).toList();
     }
 
+    // Filter by tag IDs
     if (tagIds != null && tagIds.isNotEmpty) {
-      if (whereClause.isNotEmpty) {
-        whereClause += " AND ";
-      }
-      whereClause +=
-          "tasks.id IN (SELECT task_id FROM task_tags WHERE tag_id IN (${List.filled(tagIds.length, '?').join(',')}))";
-      whereArgs.addAll(tagIds);
+      realmTasks = realmTasks.where((task) {
+        return task.tags.any((tag) => tagIds.contains(tag.id));
+      }).toList();
     }
 
-    final result = await db.rawQuery('''
-    SELECT DISTINCT tasks.*
-    FROM tasks
-    ${whereClause.isNotEmpty ? "WHERE $whereClause" : ""}
-  ''', whereArgs);
+    return realmTasks.map((t) => Task.fromRealm(t)).toList();
+  }
 
-    List<Task> tasks = [];
+  // Add a tag if it doesn't exist
+  Future<ObjectId> getOrCreateTag(String tagName) async {
+    final existingTag = realm.all<realm_db.Tag>().firstWhere(
+      (tag) => tag.name.toLowerCase() == tagName.toLowerCase(),
+      orElse: () => throw Exception('Tag not found'),
+    );
+    return existingTag.id;
+  }
 
-    for (var taskMap in result) {
-      final taskId = taskMap['id'] as int;
-
-      final tagMaps = await db.rawQuery(
-        '''
-      SELECT tags.id, tags.name
-      FROM tags
-      INNER JOIN task_tags
-      ON tags.id = task_tags.tag_id
-      WHERE task_tags.task_id = ?
-    ''',
-        [taskId],
-      );
-
-      tasks.add(
-        Task.fromMap(
-          taskMap,
-        ).copyWith(tags: tagMaps.map((e) => Tag.fromMap(e)).toList()),
-      );
-    }
-
-    return tasks;
+  void close() {
+    realmService.close();
   }
 }

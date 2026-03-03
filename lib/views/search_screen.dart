@@ -34,7 +34,6 @@ class SearchScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            /// SEARCH FIELD
             TextField(
               style: const TextStyle(color: AppTheme.textWhite),
               decoration: AppTheme.inputDecoration(
@@ -46,7 +45,7 @@ class SearchScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            /// TAG FILTERS
+
             Wrap(
               spacing: 10,
               children: vm.tags.map((tag) {
@@ -80,7 +79,6 @@ class SearchScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            /// FILTERED RESULTS
             Expanded(
               child: vm.filteredTasks.isEmpty
                   ? const Center(
@@ -92,7 +90,10 @@ class SearchScreen extends StatelessWidget {
                   : ListView.builder(
                       itemCount: vm.filteredTasks.length,
                       itemBuilder: (context, index) {
-                        return TaskCard(task: vm.filteredTasks[index]);
+                        return TaskCard(
+                          task: vm.filteredTasks[index],
+                          canEdited: false,
+                        );
                       },
                     ),
             ),

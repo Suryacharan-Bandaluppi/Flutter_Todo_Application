@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:realm/realm.dart';
 import 'package:todo_application/repositories/task_repositories.dart';
 import '../models/task.dart';
 import '../models/tag.dart';
@@ -10,10 +11,10 @@ class TaskViewModel extends ChangeNotifier {
 
   List<Task> _tasks = [];
   List<Tag> _tags = [];
-  List<Tag> _selectedTags = [];
+  final List<Tag> _selectedTags = [];
   List<Task> _filteredTasks = [];
   String _searchQuery = "";
-  List<Tag> _filterTags = [];
+  final List<Tag> _filterTags = [];
   bool _isLoading = false;
 
   List<Task> get tasks => _tasks;
@@ -27,7 +28,7 @@ class TaskViewModel extends ChangeNotifier {
     _setLoading(true);
     await loadTasks();
     await loadTags();
-    _applyFilters(); // Apply filters on load to show all tasks initially
+    _applyFilters();
     _setLoading(false);
   }
 
@@ -71,17 +72,19 @@ class TaskViewModel extends ChangeNotifier {
     await repository.addTask(newTask);
 
     await loadTasks();
+    _applyFilters();
     clearSelectedTags();
   }
 
   // DELETE TASK
-  Future<void> deleteTask(int taskId) async {
+  Future<void> deleteTask(ObjectId taskId) async {
     await repository.deleteTask(taskId);
+    _applyFilters();
     await loadTasks();
   }
 
   // DELETE TAG
-  Future<void> deleteTag(int tagId) async {
+  Future<void> deleteTag(ObjectId tagId) async {
     await repository.deleteTag(tagId);
     await loadTags();
   }
@@ -110,7 +113,7 @@ class TaskViewModel extends ChangeNotifier {
 
     _filteredTasks = await repository.searchTasks(
       query: _searchQuery,
-      tagIds: tagIds.isEmpty ? null : tagIds, // If no tags selected, show all
+      tagIds: tagIds.isEmpty ? null : tagIds, 
     );
 
     notifyListeners();

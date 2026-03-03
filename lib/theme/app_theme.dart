@@ -76,10 +76,7 @@ class AppTheme {
     fontWeight: FontWeight.bold,
   );
 
-  static const TextStyle bodyStyle = TextStyle(
-    fontSize: 14,
-    color: textWhite60,
-  );
+  static const TextStyle bodyStyle = TextStyle(fontSize: 14, color: textWhite);
 
   static const TextStyle labelStyle = TextStyle(
     fontSize: 12,

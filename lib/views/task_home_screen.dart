@@ -74,23 +74,7 @@ class TaskHomeScreen extends StatelessWidget {
               itemCount: vm.tasks.length,
               itemBuilder: (context, index) {
                 final task = vm.tasks[index];
-
-                return Dismissible(
-                  key: Key(task.id.toString()),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 20),
-                    color: AppTheme.accentRed,
-                    child: const Icon(Icons.delete, color: AppTheme.textWhite),
-                  ),
-                  onDismissed: (_) {
-                    if (task.id != null) {
-                      vm.deleteTask(task.id!);
-                    }
-                  },
-                  child: TaskCard(task: task),
-                );
+                return TaskCard(task: task, canEdited: true);
               },
             ),
     );
