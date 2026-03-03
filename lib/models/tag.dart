@@ -4,7 +4,6 @@ import '../database/realm_models.dart' as realm_db;
 class Tag {
   final ObjectId? id;
   final String name;
-
   Tag({this.id, required this.name});
 
   // Convert from Realm object to model
