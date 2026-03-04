@@ -3,14 +3,21 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:todo_application/theme/app_theme.dart';
 import 'package:todo_application/view_models/task_viewmodel.dart';
+import 'package:todo_application/views/add_task_bottom_sheet.dart';
 import '../models/task.dart';
 
 // ignore: must_be_immutable
-class TaskCard extends StatelessWidget {
+class TaskCard extends StatefulWidget {
   final Task task;
   final bool canEdited;
   const TaskCard({super.key, required this.task, required this.canEdited});
 
+  @override
+  State<TaskCard> createState() => _TaskCardState();
+}
+
+class _TaskCardState extends State<TaskCard> {
+  bool isCompleted = false;
   void _showOptionsBottomSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -39,13 +46,39 @@ class TaskCard extends StatelessWidget {
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.edit, color: AppTheme.textWhite),
+              leading: const Icon(
+                Icons.check_circle_rounded,
+                color: AppTheme.primaryGreen,
+              ),
+              title: const Text(
+                "Mark as Completed",
+                style: TextStyle(color: AppTheme.textWhite),
+              ),
+              onTap: () async {
+                Navigator.pop(context);
+                setState(() {
+                  if (isCompleted) {
+                    isCompleted = false;
+                  } else {
+                    isCompleted = true;
+                  }
+                });
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit, color: AppTheme.primaryGreen),
               title: const Text(
                 "Edit",
                 style: TextStyle(color: AppTheme.textWhite),
               ),
               onTap: () {
                 Navigator.pop(context);
+                showModalBottomSheet(
+                  context: context,
+                  backgroundColor: Colors.transparent,
+                  isScrollControlled: true,
+                  builder: (_) => AddTaskBottomSheet(taskToEdit: widget.task),
+                );
               },
             ),
             ListTile(
@@ -59,6 +92,7 @@ class TaskCard extends StatelessWidget {
                 await _showDeleteConfirmation(context);
               },
             ),
+
             const SizedBox(height: 10),
           ],
         ),
@@ -103,17 +137,17 @@ class TaskCard extends StatelessWidget {
       ),
     );
 
-    if (confirmed == true && task.id != null) {
-      vm.deleteTask(task.id!);
+    if (confirmed == true && widget.task.id != null) {
+      vm.deleteTask(widget.task.id!);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final createdAt = DateFormat('MMM d, yyyy').format(task.createdAt);
+    final createdAt = DateFormat('MMM d, yyyy').format(widget.task.createdAt);
 
-    final deadline = task.deadline != null
-        ? DateFormat('MMM d, yyyy').format(task.deadline!)
+    final deadline = widget.task.deadline != null
+        ? DateFormat('MMM d, yyyy').format(widget.task.deadline!)
         : null;
 
     return Padding(
@@ -123,9 +157,9 @@ class TaskCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(task.title, style: AppTheme.titleStyle),
+              Text(widget.task.title, style: AppTheme.titleStyle),
               const Spacer(),
-              if (canEdited)
+              if (widget.canEdited)
                 IconButton(
                   onPressed: () => _showOptionsBottomSheet(context),
                   icon: const Icon(
@@ -138,16 +172,16 @@ class TaskCard extends StatelessWidget {
 
           const SizedBox(height: 6),
 
-          if (task.description.isNotEmpty)
-            Text(task.description, style: AppTheme.bodyStyle),
+          if (widget.task.description.isNotEmpty)
+            Text(widget.task.description, style: AppTheme.bodyStyle),
 
           const SizedBox(height: 10),
 
-          if (task.tags.isNotEmpty)
+          if (widget.task.tags.isNotEmpty)
             Wrap(
               spacing: 8,
               runSpacing: 6,
-              children: task.tags
+              children: widget.task.tags
                   .map(
                     (tag) => Container(
                       padding: const EdgeInsets.symmetric(
@@ -178,20 +212,35 @@ class TaskCard extends StatelessWidget {
               Text("Created at $createdAt", style: AppTheme.labelStyle),
               const Spacer(),
               if (deadline != null) ...[
-                const Icon(
-                  Icons.calendar_month,
-                  size: 14,
-                  color: AppTheme.accentRed,
-                ),
+                isCompleted
+                    ? Icon(
+                        Icons.check_circle_rounded,
+                        size: 14,
+                        color: AppTheme.primaryGreen,
+                      )
+                    : Icon(
+                        Icons.calendar_month,
+                        size: 14,
+                        color: AppTheme.accentRed,
+                      ),
                 const SizedBox(width: 6),
-                Text(
-                  "Due: $deadline",
-                  style: const TextStyle(
-                    color: AppTheme.accentRed,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                isCompleted
+                    ? Text(
+                        "Completed",
+                        style: TextStyle(
+                          color: AppTheme.primaryGreen,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      )
+                    : Text(
+                        "Due: $deadline",
+                        style: const TextStyle(
+                          color: AppTheme.accentRed,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
               ],
             ],
           ),

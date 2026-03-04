@@ -24,6 +24,12 @@ class TaskViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   List<Task> get filteredTasks => _filteredTasks;
 
+  void setSelectedTags(List<Tag> tags) {
+    _selectedTags.clear();
+    _selectedTags.addAll(tags);
+    notifyListeners();
+  }
+
   Future<void> loadInitialData() async {
     _setLoading(true);
     await loadTasks();
@@ -76,6 +82,27 @@ class TaskViewModel extends ChangeNotifier {
     clearSelectedTags();
   }
 
+  Future<void> updateTask({
+    required Task task,
+    required String title,
+    required String description,
+    DateTime? deadline,
+  }) async {
+    final updatedTask = Task(
+      id: task.id,
+      title: title,
+      description: description,
+      createdAt: task.createdAt,
+      deadline: deadline,
+      tags: _selectedTags,
+    );
+
+    await repository.updateTask(updatedTask);
+    await loadTasks();
+    _applyFilters();
+    clearSelectedTags();
+  }
+
   // DELETE TASK
   Future<void> deleteTask(ObjectId taskId) async {
     await repository.deleteTask(taskId);
@@ -113,7 +140,7 @@ class TaskViewModel extends ChangeNotifier {
 
     _filteredTasks = await repository.searchTasks(
       query: _searchQuery,
-      tagIds: tagIds.isEmpty ? null : tagIds, 
+      tagIds: tagIds.isEmpty ? null : tagIds,
     );
 
     notifyListeners();

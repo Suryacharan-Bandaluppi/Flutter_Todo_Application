@@ -37,14 +37,13 @@ class SearchScreen extends StatelessWidget {
             TextField(
               style: const TextStyle(color: AppTheme.textWhite),
               decoration: AppTheme.inputDecoration(
-                hintText: "Search tasks, descriptions...",
+                hintText: " 🔍 Search tasks, descriptions...",
                 borderRadius: AppTheme.borderRadiusLarge,
               ),
               onChanged: vm.setSearchQuery,
             ),
 
             const SizedBox(height: 20),
-
 
             Wrap(
               spacing: 10,
