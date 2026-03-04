@@ -9,7 +9,6 @@ class DatabaseHelper {
   late final RealmService realmService;
 
   DatabaseHelper._init() {
-
     realmService = RealmService();
   }
 
@@ -83,39 +82,106 @@ class DatabaseHelper {
     }
   }
 
-  // SEARCH TASKS
-  Future<List<Task>> searchTasks({
-    String? query,
-    List<ObjectId>? tagIds,
-  }) async {
-    var realmTasks = realm.all<realm_db.Task>().toList();
-
-    // Filter by query
-    if (query != null && query.isNotEmpty) {
-      final lowerQuery = query.toLowerCase();
-      realmTasks = realmTasks.where((task) {
-        return task.title.toLowerCase().contains(lowerQuery) ||
-            task.description.toLowerCase().contains(lowerQuery);
-      }).toList();
-    }
-
-    // Filter by tag IDs
-    if (tagIds != null && tagIds.isNotEmpty) {
-      realmTasks = realmTasks.where((task) {
-        return task.tags.any((tag) => tagIds.contains(tag.id));
-      }).toList();
-    }
-
-    return realmTasks.map((t) => Task.fromRealm(t)).toList();
-  }
-
   // Add a tag if it doesn't exist
   Future<ObjectId> getOrCreateTag(String tagName) async {
     final existingTag = realm.all<realm_db.Tag>().firstWhere(
       (tag) => tag.name.toLowerCase() == tagName.toLowerCase(),
-      orElse: () => throw Exception('Tag not found'),
+      orElse: () {
+        final newTag = realm_db.Tag(ObjectId(), tagName);
+        realm.write(() {
+          realm.add(newTag);
+        });
+        return newTag;
+      },
     );
     return existingTag.id;
+  }
+
+  // TASK OPERATIONS
+  Future<ObjectId> addTask(Task task) async {
+    // Resolve tags (create if not exists)
+    final realmTags = task.tags.map((tag) {
+      final existing = realm.all<realm_db.Tag>().firstWhere(
+        (t) => t.name.toLowerCase() == tag.name.toLowerCase(),
+        orElse: () {
+          final newTag = realm_db.Tag(ObjectId(), tag.name);
+          realm.add(newTag);
+          return newTag;
+        },
+      );
+      return existing;
+    }).toList();
+
+    late ObjectId newId;
+    realm.write(() {
+      final realmTask = realm_db.Task(
+        ObjectId(),
+        task.title,
+        task.description,
+        task.createdAt,
+        deadline: task.deadline,
+        tags: realmTags,
+      );
+      realm.add(realmTask);
+      newId = realmTask.id;
+    });
+    return newId;
+  }
+
+  Future<List<Task>> getAllTasks() async {
+    final realmTasks = realm.all<realm_db.Task>().toList();
+    return realmTasks.map((t) => Task.fromRealm(t)).toList();
+  }
+
+  Future<List<Task>> searchTasks({
+    String? query,
+    List<ObjectId>? tagIds,
+  }) async {
+    RealmResults<realm_db.Task> results = realm.all<realm_db.Task>();
+
+    //  Search by title or description
+    if (query != null && query.isNotEmpty) {
+      results = results.query(
+        'title CONTAINS[c] \$0 OR description CONTAINS[c] \$0',
+        [query],
+      );
+    }
+
+    // Filter by tags
+    if (tagIds != null && tagIds.isNotEmpty) {
+      results = results.query('ANY tags.id IN \$0', [tagIds]);
+    }
+
+    return results.map((realmTask) => Task.fromRealm(realmTask)).toList();
+  }
+
+  // UPDATE TASK
+  Future<void> updateTask(Task task) async {
+    final existingTask = realm.find<realm_db.Task>(task.id!);
+    if (existingTask == null) return;
+
+    // Resolve tags (create if not exists)
+    final realmTags = task.tags.map((tag) {
+      final existing = realm.all<realm_db.Tag>().firstWhere(
+        (t) => t.name.toLowerCase() == tag.name.toLowerCase(),
+        orElse: () {
+          final newTag = realm_db.Tag(ObjectId(), tag.name);
+          realm.add(newTag);
+          return newTag;
+        },
+      );
+      return existing;
+    }).toList();
+
+    realm.write(() {
+      existingTask.title = task.title;
+      existingTask.description = task.description;
+      existingTask.deadline = task.deadline;
+      existingTask.tags.clear();
+      for (final tag in realmTags) {
+        existingTask.tags.add(tag);
+      }
+    });
   }
 
   void close() {

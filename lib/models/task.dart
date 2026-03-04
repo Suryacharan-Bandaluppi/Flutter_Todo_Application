@@ -9,7 +9,6 @@ class Task {
   final DateTime createdAt;
   final DateTime? deadline;
   final List<Tag> tags;
-
   Task({
     this.id,
     required this.title,
