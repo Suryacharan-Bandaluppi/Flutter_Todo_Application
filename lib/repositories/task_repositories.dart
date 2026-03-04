@@ -1,118 +1,60 @@
 import 'package:realm/realm.dart';
-import 'package:todo_application/database/realm_services.dart';
+import '../database/database_helper.dart';
 import '../database/realm_models.dart' as realm_db;
 import '../models/task.dart';
 import '../models/tag.dart';
 
 class TaskRepository {
-  final RealmService realmService;
+  final DatabaseHelper dbHelper = DatabaseHelper.instance;
 
-  TaskRepository(this.realmService);
-
-  Realm get _realm => realmService.realm;
+  TaskRepository();
 
   Future<ObjectId> insertTag(Tag tag) async {
-    final existing = _realm.query<realm_db.Tag>('name == \$0', [
-      tag.name,
-    ]).firstOrNull;
+    final existing = dbHelper.realm.all<realm_db.Tag>().firstWhere(
+      (t) => t.name.toLowerCase() == tag.name.toLowerCase(),
+      orElse: () => realm_db.Tag(ObjectId(), ''),
+    );
 
-    if (existing != null) return existing.id;
+    if (existing.name.isNotEmpty &&
+        existing.name.toLowerCase() == tag.name.toLowerCase()) {
+      return existing.id;
+    }
 
-    late ObjectId newId;
-
-    _realm.write(() {
-      final newTag = realm_db.Tag(ObjectId(), tag.name);
-      _realm.add(newTag);
-      newId = newTag.id;
-    });
-
-    return newId;
+    return await dbHelper.insertTag(tag);
   }
 
   Future<List<Tag>> getAllTags() async {
-    final realmTags = _realm.all<realm_db.Tag>();
-
-    return realmTags.map((t) => Tag.fromRealm(t)).toList();
+    return dbHelper.getAllTags();
   }
 
   Future<void> deleteTag(ObjectId tagId) async {
-    final tag = _realm.find<realm_db.Tag>(tagId);
-
-    if (tag != null) {
-      _realm.write(() {
-        _realm.delete(tag);
-      });
-    }
+    await dbHelper.deleteTag(tagId);
   }
 
   Future<void> deleteAllTags() async {
-    final tags = _realm.all<realm_db.Tag>();
-    _realm.write(() {
-      _realm.deleteMany(tags);
-    });
+    await dbHelper.deleteAllTags();
   }
 
-
-
   Future<void> addTask(Task task) async {
-    _realm.write(() {
-      // Resolve tags (create if not exists)
-      final realmTags = task.tags.map((tag) {
-        final existing = _realm.query<realm_db.Tag>('name == \$0', [
-          tag.name,
-        ]).firstOrNull;
-
-        return existing ?? _realm.add(realm_db.Tag(ObjectId(), tag.name));
-      }).toList();
-
-      _realm.add(
-        realm_db.Task(
-          ObjectId(),
-          task.title,
-          task.description,
-          task.createdAt,
-          deadline: task.deadline,
-          tags: realmTags,
-        ),
-      );
-    });
+    await dbHelper.addTask(task);
   }
 
   Future<List<Task>> getAllTasks() async {
-    final realmTasks = _realm.all<realm_db.Task>();
-
-    return realmTasks.map((realmTask) => Task.fromRealm(realmTask)).toList();
+    return await dbHelper.getAllTasks();
   }
 
   Future<void> deleteTask(ObjectId taskId) async {
-    final task = _realm.find<realm_db.Task>(taskId);
-
-    if (task != null) {
-      _realm.write(() {
-        _realm.delete(task);
-      });
-    }
+    await dbHelper.deleteTask(taskId);
   }
 
   Future<List<Task>> searchTasks({
     String? query,
     List<ObjectId>? tagIds,
   }) async {
-    RealmResults<realm_db.Task> results = _realm.all<realm_db.Task>();
+    return await dbHelper.searchTasks(query: query, tagIds: tagIds);
+  }
 
-    // 🔍 Search by title or description
-    if (query != null && query.isNotEmpty) {
-      results = results.query(
-        'title CONTAINS[c] \$0 OR description CONTAINS[c] \$0',
-        [query],
-      );
-    }
-
-    // 🏷 Filter by tags
-    if (tagIds != null && tagIds.isNotEmpty) {
-      results = results.query('ANY tags.id IN \$0', [tagIds]);
-    }
-
-    return results.map((realmTask) => Task.fromRealm(realmTask)).toList();
+  Future<void> updateTask(Task task) async {
+    await dbHelper.updateTask(task);
   }
 }
