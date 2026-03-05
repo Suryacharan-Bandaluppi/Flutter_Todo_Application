@@ -4,7 +4,7 @@ import 'realm_models.dart';
 class RealmService {
   late final Realm realm;
 
-  RealmService(){
+  RealmService() {
     final config = Configuration.local(
       [Task.schema, Tag.schema],
     );

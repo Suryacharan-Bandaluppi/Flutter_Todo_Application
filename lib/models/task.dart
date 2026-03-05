@@ -9,13 +9,15 @@ class Task {
   final DateTime createdAt;
   final DateTime? deadline;
   final List<Tag> tags;
-  Task({
+  final bool? isCompleted;
+  const Task({
     this.id,
     required this.title,
     required this.description,
     required this.createdAt,
     this.deadline,
     this.tags = const [],
+    this.isCompleted
   });
 
   // Convert from Realm object to model
@@ -27,6 +29,7 @@ class Task {
       createdAt: realmTask.createdAt,
       deadline: realmTask.deadline,
       tags: realmTask.tags.map((t) => Tag.fromRealm(t)).toList(),
+      isCompleted: realmTask.isCompleted
     );
   }
 
@@ -39,45 +42,9 @@ class Task {
       createdAt,
       deadline: deadline,
       tags: tags.map((t) => t.toRealm()).toList(),
+      isCompleted: isCompleted
     );
   }
 
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'title': title, 
-      'description': description,
-      'created_at': createdAt.toIso8601String(),
-      'deadline': deadline?.toIso8601String(),
-    };
-  }
 
-  factory Task.fromMap(Map<String, dynamic> map) {
-    return Task(
-      id: map['id'],
-      title: map['title'],
-      description: map['description'],
-      createdAt: DateTime.parse(map['created_at']),
-      deadline: map['deadline'] != null
-          ? DateTime.parse(map['deadline'])
-          : null,
-    );
-  }
-  Task copyWith({
-    ObjectId? id,
-    String? title,
-    String? description,
-    DateTime? createdAt,
-    DateTime? deadline,
-    List<Tag>? tags,
-  }) {
-    return Task(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      description: description ?? this.description,
-      createdAt: createdAt ?? this.createdAt,
-      deadline: deadline ?? this.deadline,
-      tags: tags ?? this.tags,
-    );
-  }
 }

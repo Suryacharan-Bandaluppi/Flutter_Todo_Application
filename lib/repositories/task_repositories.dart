@@ -57,4 +57,8 @@ class TaskRepository {
   Future<void> updateTask(Task task) async {
     await dbHelper.updateTask(task);
   }
+
+  Future<void> updateTaskCompletion(ObjectId taskId, bool isCompleted) async {
+    await dbHelper.updateTaskCompletion(taskId, isCompleted);
+  }
 }

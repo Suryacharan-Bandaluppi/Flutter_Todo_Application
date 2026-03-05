@@ -9,7 +9,6 @@ class _Tag {
 
   @Indexed()
   late String name;
-  
 }
 
 @RealmModel()
@@ -22,6 +21,7 @@ class _Task {
   late DateTime createdAt;
 
   DateTime? deadline;
+  bool? isCompleted;
 
   late List<_Tag> tags;
 }

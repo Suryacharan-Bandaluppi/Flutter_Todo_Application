@@ -70,7 +70,7 @@ class TaskHomeScreen extends StatelessWidget {
               ),
             )
           : ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
               itemCount: vm.tasks.length,
               itemBuilder: (context, index) {
                 final task = vm.tasks[index];

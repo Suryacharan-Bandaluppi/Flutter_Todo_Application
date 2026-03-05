@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:todo_application/theme/app_theme.dart';
+import 'package:todo_application/utils/toast.dart';
 import 'package:todo_application/view_models/task_viewmodel.dart';
 import 'package:todo_application/views/add_task_bottom_sheet.dart';
 import '../models/task.dart';
@@ -17,130 +18,10 @@ class TaskCard extends StatefulWidget {
 }
 
 class _TaskCardState extends State<TaskCard> {
-  bool isCompleted = false;
-  void _showOptionsBottomSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        decoration: const BoxDecoration(
-          color: AppTheme.darkGreen,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(AppTheme.borderRadiusXLarge),
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Center(
-              child: Container(
-                height: 3,
-                width: 40,
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryGreen,
-                  borderRadius: BorderRadius.circular(
-                    AppTheme.borderRadiusSmall,
-                  ),
-                ),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(
-                Icons.check_circle_rounded,
-                color: AppTheme.primaryGreen,
-              ),
-              title: const Text(
-                "Mark as Completed",
-                style: TextStyle(color: AppTheme.textWhite),
-              ),
-              onTap: () async {
-                Navigator.pop(context);
-                setState(() {
-                  if (isCompleted) {
-                    isCompleted = false;
-                  } else {
-                    isCompleted = true;
-                  }
-                });
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.edit, color: AppTheme.primaryGreen),
-              title: const Text(
-                "Edit",
-                style: TextStyle(color: AppTheme.textWhite),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                showModalBottomSheet(
-                  context: context,
-                  backgroundColor: Colors.transparent,
-                  isScrollControlled: true,
-                  builder: (_) => AddTaskBottomSheet(taskToEdit: widget.task),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete, color: AppTheme.accentRed),
-              title: const Text(
-                "Delete",
-                style: TextStyle(color: AppTheme.accentRed),
-              ),
-              onTap: () async {
-                Navigator.pop(context);
-                await _showDeleteConfirmation(context);
-              },
-            ),
-
-            const SizedBox(height: 10),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showDeleteConfirmation(BuildContext context) async {
-    final vm = context.read<TaskViewModel>();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.darkGreen,
-        title: const Text(
-          "Delete Task",
-          style: TextStyle(color: AppTheme.textWhite),
-        ),
-        content: const Text(
-          "Are you sure you want to delete this task?",
-          style: TextStyle(color: AppTheme.textWhite70),
-        ),
-        actions: [
-          OutlinedButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text(
-              "Cancel",
-              style: TextStyle(color: AppTheme.textWhite),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accentRed,
-            ),
-            child: const Text(
-              "Delete",
-              style: TextStyle(color: AppTheme.textWhite),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && widget.task.id != null) {
-      vm.deleteTask(widget.task.id!);
-    }
-  }
+  bool get isCompleted => widget.task.isCompleted ?? false;
+  bool get hasTimeForDeadline =>
+      widget.task.deadline != null &&
+      DateTime.now().isBefore(widget.task.deadline!);
 
   @override
   Widget build(BuildContext context) {
@@ -160,13 +41,20 @@ class _TaskCardState extends State<TaskCard> {
               Text(widget.task.title, style: AppTheme.titleStyle),
               const Spacer(),
               if (widget.canEdited)
-                IconButton(
-                  onPressed: () => _showOptionsBottomSheet(context),
-                  icon: const Icon(
-                    Icons.more_vert,
-                    color: AppTheme.textWhite70,
-                  ),
-                ),
+                isCompleted
+                    ? IconButton(
+                        onPressed: () async {
+                          await _showDeleteConfirmation(context);
+                        },
+                        icon: Icon(Icons.delete, color: AppTheme.accentRed),
+                      )
+                    : IconButton(
+                        onPressed: () => _showOptionsBottomSheet(context),
+                        icon: const Icon(
+                          Icons.more_vert,
+                          color: AppTheme.textWhite70,
+                        ),
+                      ),
             ],
           ),
 
@@ -234,7 +122,9 @@ class _TaskCardState extends State<TaskCard> {
                         ),
                       )
                     : Text(
-                        "Due: $deadline",
+                        hasTimeForDeadline
+                            ? "Due: $deadline"
+                            : "Deadline Passed",
                         style: const TextStyle(
                           color: AppTheme.accentRed,
                           fontSize: 12,
@@ -251,5 +141,133 @@ class _TaskCardState extends State<TaskCard> {
         ],
       ),
     );
+  }
+
+  void _showOptionsBottomSheet(BuildContext context) {
+    final vm = context.read<TaskViewModel>();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: AppTheme.darkGreen,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppTheme.borderRadiusXLarge),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                height: 3,
+                width: 40,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryGreen,
+                  borderRadius: BorderRadius.circular(
+                    AppTheme.borderRadiusSmall,
+                  ),
+                ),
+              ),
+            ),
+            if (!isCompleted)
+              ListTile(
+                leading: const Icon(
+                  Icons.check_circle_rounded,
+                  color: AppTheme.primaryGreen,
+                ),
+                title: Text(
+                  "Mark as Completed",
+                  style: TextStyle(color: AppTheme.textWhite),
+                ),
+                onTap: () async {
+                  Navigator.pop(context);
+                  setState(() {
+                    vm.toggleTaskCompletion(widget.task);
+                  });
+                },
+              ),
+            if (!isCompleted)
+              ListTile(
+                leading: const Icon(Icons.edit, color: AppTheme.primaryGreen),
+                title: const Text(
+                  "Edit",
+                  style: TextStyle(color: AppTheme.textWhite),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  showModalBottomSheet(
+                    context: context,
+                    backgroundColor: Colors.transparent,
+                    isScrollControlled: true,
+                    builder: (_) => AddTaskBottomSheet(taskToEdit: widget.task),
+                  );
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: AppTheme.accentRed),
+              title: const Text(
+                "Delete",
+                style: TextStyle(color: AppTheme.accentRed),
+              ),
+              onTap: () async {
+                Navigator.pop(context);
+                await _showDeleteConfirmation(context);
+              },
+            ),
+
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showDeleteConfirmation(BuildContext context) async {
+    final vm = context.read<TaskViewModel>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.darkGreen,
+        title: const Text(
+          "Delete Task",
+          style: TextStyle(color: AppTheme.textWhite),
+        ),
+        content: const Text(
+          "Are you sure you want to delete this task?",
+          style: TextStyle(color: AppTheme.textWhite70),
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () {
+              Navigator.pop(context, false);
+            },
+            child: const Text(
+              "Cancel",
+              style: TextStyle(color: AppTheme.textWhite),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context, true);
+              ToastUtil.success("Task Deleted Successfully");
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.accentRed,
+            ),
+            child: const Text(
+              "Delete",
+              style: TextStyle(color: AppTheme.textWhite),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && widget.task.id != null) {
+      vm.deleteTask(widget.task.id!);
+    }
   }
 }

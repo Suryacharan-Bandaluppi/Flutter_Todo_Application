@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:todo_application/theme/app_theme.dart';
+import 'package:todo_application/utils/toast.dart';
 import 'package:todo_application/view_models/task_viewmodel.dart';
 import '../models/task.dart';
 import '../models/tag.dart';
@@ -99,6 +100,9 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
     // If editing, set initial selected tags
     if (_isEditMode && widget.taskToEdit != null) {
       vm.setSelectedTags(widget.taskToEdit!.tags);
+    } else {
+      // For add task mode, clear any previously selected tags
+      vm.clearSelectedTags();
     }
   }
 
@@ -234,15 +238,7 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                           if (existingTag.name.isNotEmpty) {
                             // Tag already exists - show snackbar
                             if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Tag "$tagName" already exists',
-                                  ),
-                                  backgroundColor: AppTheme.errorRed,
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
+                              ToastUtil.error('Tag "$tagName" already exists');
                             }
                           } else {
                             // Create new tag
@@ -354,12 +350,14 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                                 description: _descriptionController.text,
                                 deadline: _selectedDeadline,
                               );
+                              ToastUtil.success("Task Updated Successfully");
                             } else {
                               await vm.addTask(
                                 title: _titleController.text,
                                 description: _descriptionController.text,
                                 deadline: _selectedDeadline,
                               );
+                              ToastUtil.success("Task Added Successfully");
                             }
 
                             if (context.mounted) {

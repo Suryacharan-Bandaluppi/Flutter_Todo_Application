@@ -78,6 +78,7 @@ class Task extends _Task with RealmEntity, RealmObjectBase, RealmObject {
     String description,
     DateTime createdAt, {
     DateTime? deadline,
+    bool? isCompleted,
     Iterable<Tag> tags = const [],
   }) {
     RealmObjectBase.set(this, 'id', id);
@@ -85,6 +86,7 @@ class Task extends _Task with RealmEntity, RealmObjectBase, RealmObject {
     RealmObjectBase.set(this, 'description', description);
     RealmObjectBase.set(this, 'createdAt', createdAt);
     RealmObjectBase.set(this, 'deadline', deadline);
+    RealmObjectBase.set(this, 'isCompleted', isCompleted);
     RealmObjectBase.set<RealmList<Tag>>(this, 'tags', RealmList<Tag>(tags));
   }
 
@@ -121,6 +123,13 @@ class Task extends _Task with RealmEntity, RealmObjectBase, RealmObject {
   set deadline(DateTime? value) => RealmObjectBase.set(this, 'deadline', value);
 
   @override
+  bool? get isCompleted =>
+      RealmObjectBase.get<bool>(this, 'isCompleted') as bool?;
+  @override
+  set isCompleted(bool? value) =>
+      RealmObjectBase.set(this, 'isCompleted', value);
+
+  @override
   RealmList<Tag> get tags =>
       RealmObjectBase.get<Tag>(this, 'tags') as RealmList<Tag>;
   @override
@@ -144,6 +153,7 @@ class Task extends _Task with RealmEntity, RealmObjectBase, RealmObject {
       'description': description.toEJson(),
       'createdAt': createdAt.toEJson(),
       'deadline': deadline.toEJson(),
+      'isCompleted': isCompleted.toEJson(),
       'tags': tags.toEJson(),
     };
   }
@@ -164,6 +174,7 @@ class Task extends _Task with RealmEntity, RealmObjectBase, RealmObject {
           fromEJson(description),
           fromEJson(createdAt),
           deadline: fromEJson(ejson['deadline']),
+          isCompleted: fromEJson(ejson['isCompleted']),
           tags: fromEJson(ejson['tags']),
         ),
       _ => raiseInvalidEJson(ejson),
@@ -179,6 +190,7 @@ class Task extends _Task with RealmEntity, RealmObjectBase, RealmObject {
       SchemaProperty('description', RealmPropertyType.string),
       SchemaProperty('createdAt', RealmPropertyType.timestamp),
       SchemaProperty('deadline', RealmPropertyType.timestamp, optional: true),
+      SchemaProperty('isCompleted', RealmPropertyType.bool, optional: true),
       SchemaProperty(
         'tags',
         RealmPropertyType.object,

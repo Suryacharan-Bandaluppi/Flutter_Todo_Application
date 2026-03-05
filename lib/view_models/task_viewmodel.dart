@@ -32,9 +32,14 @@ class TaskViewModel extends ChangeNotifier {
 
   Future<void> loadInitialData() async {
     _setLoading(true);
+
+    // Load tasks first
     await loadTasks();
-    await loadTags();
     _applyFilters();
+
+    // Load tags in background (don't block UI)
+    loadTags().then((_) => notifyListeners());
+
     _setLoading(false);
   }
 
@@ -94,6 +99,7 @@ class TaskViewModel extends ChangeNotifier {
       description: description,
       createdAt: task.createdAt,
       deadline: deadline,
+      isCompleted: task.isCompleted,
       tags: _selectedTags,
     );
 
@@ -101,6 +107,15 @@ class TaskViewModel extends ChangeNotifier {
     await loadTasks();
     _applyFilters();
     clearSelectedTags();
+  }
+
+  Future<void> toggleTaskCompletion(Task task) async {
+    if (task.id == null) return;
+
+    final newCompletionStatus = !(task.isCompleted ?? false);
+    await repository.updateTaskCompletion(task.id!, newCompletionStatus);
+    await loadTasks();
+    _applyFilters();
   }
 
   // DELETE TASK
