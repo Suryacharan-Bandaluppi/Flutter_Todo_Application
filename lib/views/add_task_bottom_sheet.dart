@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:todo_application/database/database_helper.dart';
 import 'package:todo_application/theme/app_theme.dart';
+import 'package:todo_application/utils/toast.dart';
 import 'package:todo_application/view_models/task_viewmodel.dart';
+import '../models/task.dart';
 import '../models/tag.dart';
 
 class AddTaskBottomSheet extends StatefulWidget {
-  const AddTaskBottomSheet({super.key});
+  final Task? taskToEdit;
+
+  const AddTaskBottomSheet({super.key, this.taskToEdit});
 
   @override
   State<AddTaskBottomSheet> createState() => _AddTaskBottomSheetState();
@@ -15,17 +18,67 @@ class AddTaskBottomSheet extends StatefulWidget {
 class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
   final _formKey = GlobalKey<FormState>();
 
-  final _titleController = TextEditingController();
-  final _descriptionController = TextEditingController();
+  late final TextEditingController _titleController;
+  late final TextEditingController _descriptionController;
   final _newTagController = TextEditingController();
 
   DateTime? _selectedDeadline;
+  List<Tag> _initialTags = [];
+  bool _hasChanges = false;
 
   @override
   void initState() {
     super.initState();
+    _titleController = TextEditingController(
+      text: widget.taskToEdit?.title ?? '',
+    );
+    _descriptionController = TextEditingController(
+      text: widget.taskToEdit?.description ?? '',
+    );
+    _selectedDeadline = widget.taskToEdit?.deadline;
+
+    if (_isEditMode && widget.taskToEdit != null) {
+      _initialTags = List.from(widget.taskToEdit!.tags);
+    }
+
     _ensureDefaultTags();
-    // deleteTags();
+  }
+
+  bool get _isEditMode => widget.taskToEdit != null;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _newTagController.dispose();
+    super.dispose();
+  }
+
+  void _checkForChanges() {
+    if (!_isEditMode) {
+      setState(() {
+        _hasChanges = _titleController.text.trim().isNotEmpty;
+      });
+      return;
+    }
+
+    final titleChanged =
+        _titleController.text.trim() != widget.taskToEdit?.title;
+    final descriptionChanged =
+        _descriptionController.text.trim() != widget.taskToEdit?.description;
+    final deadlineChanged = _selectedDeadline != widget.taskToEdit?.deadline;
+
+    final currentSelectedTags = context.read<TaskViewModel>().selectedTags;
+    final tagsChanged =
+        _initialTags.length != currentSelectedTags.length ||
+        !_initialTags.every(
+          (tag) => currentSelectedTags.any((t) => t.id == tag.id),
+        );
+
+    setState(() {
+      _hasChanges =
+          titleChanged || descriptionChanged || deadlineChanged || tagsChanged;
+    });
   }
 
   Future<void> _ensureDefaultTags() async {
@@ -43,15 +96,19 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
     }
 
     await vm.loadTags();
-  }
 
-  Future<void> deleteTags() async {
-    await DatabaseHelper.instance.deleteAllTags();
+    // If editing, set initial selected tags
+    if (_isEditMode && widget.taskToEdit != null) {
+      vm.setSelectedTags(widget.taskToEdit!.tags);
+    } else {
+      // For add task mode, clear any previously selected tags
+      vm.clearSelectedTags();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final vm = context.watch<TaskViewModel>();
+    final vm = context.read<TaskViewModel>();
 
     return DraggableScrollableSheet(
       initialChildSize: 0.8,
@@ -83,7 +140,10 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                     ),
                   ),
                 ),
-                const Text("New Task", style: AppTheme.headingStyle),
+                Text(
+                  _isEditMode ? "Edit Task" : "New Task",
+                  style: AppTheme.headingStyle,
+                ),
                 const SizedBox(height: 20),
 
                 TextFormField(
@@ -97,6 +157,7 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                     return null;
                   },
                   autovalidateMode: AutovalidateMode.onUserInteraction,
+                  onChanged: (_) => _checkForChanges(),
                 ),
                 const SizedBox(height: 20),
 
@@ -105,6 +166,7 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                   style: const TextStyle(color: AppTheme.textWhite),
                   maxLines: 3,
                   decoration: AppTheme.inputDecoration(hintText: "Description"),
+                  onChanged: (_) => _checkForChanges(),
                 ),
                 const SizedBox(height: 20),
 
@@ -116,7 +178,10 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                   children: vm.tags
                       .map(
                         (tag) => GestureDetector(
-                          onTap: () => vm.toggleTag(tag),
+                          onTap: () {
+                            vm.toggleTag(tag);
+                            _checkForChanges();
+                          },
                           child: Column(
                             children: [
                               Container(
@@ -171,17 +236,9 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                           );
 
                           if (existingTag.name.isNotEmpty) {
-                            // Tag already exists - show snackbar
+                            // Tag already exists - show toast message
                             if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Tag "$tagName" already exists',
-                                  ),
-                                  backgroundColor: AppTheme.errorRed,
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
+                              ToastUtil.error('Tag "$tagName" already exists');
                             }
                           } else {
                             // Create new tag
@@ -194,6 +251,7 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                               (tag) => tag.name == tagName,
                             );
                             vm.toggleTag(createdTag);
+                            _checkForChanges();
                           }
 
                           _newTagController.clear();
@@ -211,8 +269,8 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                   onTap: () async {
                     final picked = await showDatePicker(
                       context: context,
-                      initialDate: DateTime.now(),
-                      firstDate: DateTime(2023),
+                      initialDate: _selectedDeadline ?? DateTime.now(),
+                      firstDate: DateTime.now(),
                       lastDate: DateTime(2100),
                       builder: (context, child) {
                         return Theme(
@@ -223,9 +281,15 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                     );
 
                     if (picked != null) {
+                      // Store as UTC to avoid timezone issues when persisting to Realm
                       setState(() {
-                        _selectedDeadline = picked;
+                        _selectedDeadline = DateTime.utc(
+                          picked.year,
+                          picked.month,
+                          picked.day,
+                        );
                       });
+                      _checkForChanges();
                     }
                   },
                   child: Container(
@@ -273,22 +337,37 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                     const SizedBox(width: 15),
                     Expanded(
                       child: ElevatedButton(
-                        style: AppTheme.primaryButtonStyle(),
+                        style: _hasChanges
+                            ? AppTheme.primaryButtonStyle()
+                            : AppTheme.secondaryButtonStyle(),
                         onPressed: () async {
+                          if (!_hasChanges) return;
                           if (_formKey.currentState!.validate()) {
-                            await vm.addTask(
-                              title: _titleController.text,
-                              description: _descriptionController.text,
-                              deadline: _selectedDeadline,
-                            );
+                            if (_isEditMode && widget.taskToEdit != null) {
+                              await vm.updateTask(
+                                task: widget.taskToEdit!,
+                                title: _titleController.text,
+                                description: _descriptionController.text,
+                                deadline: _selectedDeadline,
+                              );
+                              ToastUtil.success("Task Updated Successfully");
+                            } else {
+                              await vm.addTask(
+                                title: _titleController.text,
+                                description: _descriptionController.text,
+                                deadline: _selectedDeadline,
+                              );
+                              ToastUtil.success("Task Added Successfully");
+                            }
 
                             if (context.mounted) {
                               Navigator.pop(context);
                             }
                           }
                         },
-                        child: const Text(
-                          "Add Task",
+
+                        child: Text(
+                          _isEditMode ? "Update Task" : "Add Task",
                           style: TextStyle(color: AppTheme.textBlack),
                         ),
                       ),

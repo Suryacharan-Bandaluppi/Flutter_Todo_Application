@@ -2,20 +2,164 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:todo_application/theme/app_theme.dart';
+import 'package:todo_application/utils/toast.dart';
 import 'package:todo_application/view_models/task_viewmodel.dart';
+import 'package:todo_application/views/add_task_bottom_sheet.dart';
 import '../models/task.dart';
 
-// ignore: must_be_immutable
 class TaskCard extends StatelessWidget {
   final Task task;
-  final bool canEdited;
-  const TaskCard({super.key, required this.task, required this.canEdited});
+  final bool canEdit;
+
+  const TaskCard({super.key, required this.task, required this.canEdit});
+
+  static final DateFormat _dateFormatter = DateFormat('MMM d, yyyy');
+
+  bool get isCompleted => task.isCompleted ?? false;
+
+  bool get hasTimeForDeadline {
+    if (task.deadline == null) return false;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final deadlineDate = DateTime(
+      task.deadline!.year,
+      task.deadline!.month,
+      task.deadline!.day,
+    );
+
+    return !deadlineDate.isBefore(today);
+  }
+
+  String _formatDeadline(DateTime deadline) {
+    final now = DateTime.now();
+
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(const Duration(days: 1));
+    final deadlineDate = DateTime(deadline.year, deadline.month, deadline.day);
+
+    if (deadlineDate == today) {
+      return "Today";
+    } else if (deadlineDate == tomorrow) {
+      return "Tomorrow";
+    } else {
+      return _dateFormatter.format(deadline);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final createdAt = _dateFormatter.format(task.createdAt);
+    final deadline = task.deadline != null
+        ? _formatDeadline(task.deadline!)
+        : null;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text(task.title, style: AppTheme.titleStyle)),
+              const Spacer(),
+              if (canEdit)
+                isCompleted
+                    ? IconButton(
+                        onPressed: () async {
+                          await _showDeleteConfirmation(context);
+                        },
+                        icon: const Icon(
+                          Icons.delete,
+                          color: AppTheme.accentRed,
+                        ),
+                      )
+                    : IconButton(
+                        onPressed: () => _showOptionsBottomSheet(context),
+                        icon: const Icon(
+                          Icons.more_vert,
+                          color: AppTheme.textWhite70,
+                        ),
+                      ),
+            ],
+          ),
+
+          const SizedBox(height: 6),
+
+          if (task.description.isNotEmpty)
+            Text(task.description, style: AppTheme.bodyStyle),
+
+          const SizedBox(height: 10),
+
+          if (task.tags.isNotEmpty)
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: List.generate(
+                task.tags.length,
+                (index) => TagChip(name: task.tags[index].name),
+              ),
+            ),
+
+          const SizedBox(height: 12),
+
+          Row(
+            children: [
+              const Icon(Icons.schedule, size: 14, color: AppTheme.textWhite38),
+              const SizedBox(width: 6),
+              Text("Created at $createdAt", style: AppTheme.labelStyle),
+              const Spacer(),
+              isCompleted
+                  ? const Icon(
+                      Icons.check_circle_rounded,
+                      size: 14,
+                      color: AppTheme.primaryGreen,
+                    )
+                  : Icon(
+                      Icons.calendar_month,
+                      size: 14,
+                      color: hasTimeForDeadline
+                          ? AppTheme.primaryGreen
+                          : AppTheme.accentRed,
+                    ),
+              const SizedBox(width: 6),
+              isCompleted
+                  ? const Text(
+                      "Completed",
+                      style: TextStyle(
+                        color: AppTheme.primaryGreen,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    )
+                  : Text(
+                      hasTimeForDeadline ? "Due: $deadline" : "Deadline Passed",
+                      style: TextStyle(
+                        color: hasTimeForDeadline
+                            ? AppTheme.primaryGreen
+                            : AppTheme.accentRed,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          const Divider(color: AppTheme.textWhite38, height: 10),
+        ],
+      ),
+    );
+  }
 
   void _showOptionsBottomSheet(BuildContext context) {
+    final vm = context.read<TaskViewModel>();
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (_) => Container(
+      builder: (context) => Container(
         decoration: const BoxDecoration(
           color: AppTheme.darkGreen,
           borderRadius: BorderRadius.vertical(
@@ -38,16 +182,38 @@ class TaskCard extends StatelessWidget {
                 ),
               ),
             ),
-            ListTile(
-              leading: const Icon(Icons.edit, color: AppTheme.textWhite),
-              title: const Text(
-                "Edit",
-                style: TextStyle(color: AppTheme.textWhite),
+            if (!isCompleted)
+              ListTile(
+                leading: const Icon(
+                  Icons.check_circle_rounded,
+                  color: AppTheme.primaryGreen,
+                ),
+                title: const Text(
+                  "Mark as Completed",
+                  style: TextStyle(color: AppTheme.textWhite),
+                ),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await vm.toggleTaskCompletion(task);
+                },
               ),
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
+            if (!isCompleted)
+              ListTile(
+                leading: const Icon(Icons.edit, color: AppTheme.primaryGreen),
+                title: const Text(
+                  "Edit",
+                  style: TextStyle(color: AppTheme.textWhite),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  showModalBottomSheet(
+                    context: context,
+                    backgroundColor: Colors.transparent,
+                    isScrollControlled: true,
+                    builder: (context) => AddTaskBottomSheet(taskToEdit: task),
+                  );
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.delete, color: AppTheme.accentRed),
               title: const Text(
@@ -68,6 +234,7 @@ class TaskCard extends StatelessWidget {
 
   Future<void> _showDeleteConfirmation(BuildContext context) async {
     final vm = context.read<TaskViewModel>();
+
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -104,103 +271,26 @@ class TaskCard extends StatelessWidget {
     );
 
     if (confirmed == true && task.id != null) {
-      vm.deleteTask(task.id!);
+      await vm.deleteTask(task.id!);
+      ToastUtil.success("Task Deleted Successfully");
     }
   }
+}
+
+class TagChip extends StatelessWidget {
+  final String name;
+
+  const TagChip({super.key, required this.name});
 
   @override
   Widget build(BuildContext context) {
-    final createdAt = DateFormat('MMM d, yyyy').format(task.createdAt);
-
-    final deadline = task.deadline != null
-        ? DateFormat('MMM d, yyyy').format(task.deadline!)
-        : null;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(task.title, style: AppTheme.titleStyle),
-              const Spacer(),
-              if (canEdited)
-                IconButton(
-                  onPressed: () => _showOptionsBottomSheet(context),
-                  icon: const Icon(
-                    Icons.more_vert,
-                    color: AppTheme.textWhite70,
-                  ),
-                ),
-            ],
-          ),
-
-          const SizedBox(height: 6),
-
-          if (task.description.isNotEmpty)
-            Text(task.description, style: AppTheme.bodyStyle),
-
-          const SizedBox(height: 10),
-
-          if (task.tags.isNotEmpty)
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: task.tags
-                  .map(
-                    (tag) => Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryGreen,
-                        borderRadius: BorderRadius.circular(
-                          AppTheme.borderRadiusLarge,
-                        ),
-                      ),
-                      child: Text(
-                        tag.name.toUpperCase(),
-                        style: AppTheme.tagStyle,
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-
-          const SizedBox(height: 12),
-
-          Row(
-            children: [
-              const Icon(Icons.schedule, size: 14, color: AppTheme.textWhite38),
-              const SizedBox(width: 6),
-              Text("Created at $createdAt", style: AppTheme.labelStyle),
-              const Spacer(),
-              if (deadline != null) ...[
-                const Icon(
-                  Icons.calendar_month,
-                  size: 14,
-                  color: AppTheme.accentRed,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  "Due: $deadline",
-                  style: const TextStyle(
-                    color: AppTheme.accentRed,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ],
-          ),
-
-          const SizedBox(height: 14),
-
-          const Divider(color: AppTheme.textWhite38, height: 10),
-        ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryGreen,
+        borderRadius: BorderRadius.circular(AppTheme.borderRadiusLarge),
       ),
+      child: Text(name.toUpperCase(), style: AppTheme.tagStyle),
     );
   }
 }

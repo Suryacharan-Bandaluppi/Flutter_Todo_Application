@@ -3,16 +3,13 @@ import 'package:provider/provider.dart';
 import 'package:todo_application/repositories/task_repositories.dart';
 import 'package:todo_application/view_models/task_viewmodel.dart';
 import 'package:todo_application/views/task_home_screen.dart';
-import 'database/realm_services.dart';
 
 void main() {
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(
-          create: (_) =>
-              TaskViewModel(TaskRepository(RealmService()))
-                ..loadInitialData(),
+          create: (_) => TaskViewModel(TaskRepository())..loadInitialData(),
         ),
       ],
       child: const MyApp(),

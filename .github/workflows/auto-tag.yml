@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Extract Version from pubspec.yaml
         id: get_version
@@ -19,9 +21,12 @@ jobs:
           VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d '+' -f 1)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
+      - name: Fetch Tags
+        run: git fetch --tags
+
       - name: Check if Tag Exists
         run: |
-          if git rev-parse "v${{ env.VERSION }}" >/dev/null 2>&1; then
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
             echo "Tag already exists. Skipping."
             exit 0
           fi
@@ -30,7 +35,8 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git tag v${{ env.VERSION }}
-          git push origin v${{ env.VERSION }}
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
         env:
+          VERSION: ${{ env.VERSION }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

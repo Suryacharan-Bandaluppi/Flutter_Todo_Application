@@ -21,6 +21,7 @@ class _Task {
   late DateTime createdAt;
 
   DateTime? deadline;
+  bool? isCompleted;
 
   late List<_Tag> tags;
 }

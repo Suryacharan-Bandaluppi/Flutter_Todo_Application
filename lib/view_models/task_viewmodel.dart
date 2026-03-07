@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:realm/realm.dart';
 import 'package:todo_application/repositories/task_repositories.dart';
@@ -23,12 +25,24 @@ class TaskViewModel extends ChangeNotifier {
   List<Tag> get filterTags => _filterTags;
   bool get isLoading => _isLoading;
   List<Task> get filteredTasks => _filteredTasks;
+  Timer? _debounce;
+
+  void setSelectedTags(List<Tag> tags) {
+    _selectedTags.clear();
+    _selectedTags.addAll(tags);
+    notifyListeners();
+  }
 
   Future<void> loadInitialData() async {
     _setLoading(true);
+
+    // Load tasks first
     await loadTasks();
-    await loadTags();
     _applyFilters();
+
+    // Load tags in background (don't block UI)
+    loadTags().then((_) => notifyListeners());
+
     _setLoading(false);
   }
 
@@ -76,11 +90,42 @@ class TaskViewModel extends ChangeNotifier {
     clearSelectedTags();
   }
 
+  Future<void> updateTask({
+    required Task task,
+    required String title,
+    required String description,
+    DateTime? deadline,
+  }) async {
+    final updatedTask = Task(
+      id: task.id,
+      title: title,
+      description: description,
+      createdAt: task.createdAt,
+      deadline: deadline,
+      isCompleted: task.isCompleted,
+      tags: _selectedTags,
+    );
+
+    await repository.updateTask(updatedTask);
+    await loadTasks();
+    _applyFilters();
+    clearSelectedTags();
+  }
+
+  Future<void> toggleTaskCompletion(Task task) async {
+    if (task.id == null) return;
+
+    final newCompletionStatus = !(task.isCompleted ?? false);
+    await repository.updateTaskCompletion(task.id!, newCompletionStatus);
+    await loadTasks();
+    _applyFilters();
+  }
+
   // DELETE TASK
   Future<void> deleteTask(ObjectId taskId) async {
     await repository.deleteTask(taskId);
+    _tasks.removeWhere((task) => task.id == taskId);
     _applyFilters();
-    await loadTasks();
   }
 
   // DELETE TAG
@@ -96,7 +141,14 @@ class TaskViewModel extends ChangeNotifier {
 
   void setSearchQuery(String value) {
     _searchQuery = value;
-    _applyFilters();
+
+    if (_debounce?.isActive ?? false) {
+      _debounce!.cancel();
+    }
+
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      _applyFilters();
+    });
   }
 
   void toggleFilterTag(Tag tag) {
@@ -113,9 +165,15 @@ class TaskViewModel extends ChangeNotifier {
 
     _filteredTasks = await repository.searchTasks(
       query: _searchQuery,
-      tagIds: tagIds.isEmpty ? null : tagIds, 
+      tagIds: tagIds.isEmpty ? null : tagIds,
     );
 
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
   }
 }
