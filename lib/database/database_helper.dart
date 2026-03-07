@@ -143,7 +143,7 @@ class DatabaseHelper {
     if (query != null && query.isNotEmpty) {
       results = results.query(
         'title CONTAINS[c] \$0 OR description CONTAINS[c] \$0',
-        [query],
+        [query.trim()],
       );
     }
 

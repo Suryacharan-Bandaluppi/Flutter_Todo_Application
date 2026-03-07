@@ -11,8 +11,6 @@ class TaskHomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final vm = context.watch<TaskViewModel>();
-
     return Scaffold(
       backgroundColor: AppTheme.darkBlue,
       appBar: AppBar(
@@ -60,23 +58,31 @@ class TaskHomeScreen extends StatelessWidget {
         ),
         icon: const Icon(Icons.add, color: AppTheme.textBlack),
       ),
-      body: vm.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : vm.tasks.isEmpty
-          ? const Center(
+      body: Consumer<TaskViewModel>(
+        builder: (context, taskViewModel, child) {
+          if (taskViewModel.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (taskViewModel.tasks.isEmpty) {
+            return const Center(
               child: Text(
                 "No Tasks Yet",
                 style: TextStyle(color: AppTheme.textWhite54),
               ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-              itemCount: vm.tasks.length,
-              itemBuilder: (context, index) {
-                final task = vm.tasks[index];
-                return TaskCard(task: task, canEdited: true);
-              },
-            ),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+            itemCount: taskViewModel.tasks.length,
+            itemBuilder: (context, index) {
+              final task = taskViewModel.tasks[index];
+              return TaskCard(task: task, canEdit: true);
+            },
+          );
+        },
+      ),
     );
   }
 }

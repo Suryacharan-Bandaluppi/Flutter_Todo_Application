@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:realm/realm.dart';
 import 'package:todo_application/repositories/task_repositories.dart';
@@ -23,6 +25,7 @@ class TaskViewModel extends ChangeNotifier {
   List<Tag> get filterTags => _filterTags;
   bool get isLoading => _isLoading;
   List<Task> get filteredTasks => _filteredTasks;
+  Timer? _debounce;
 
   void setSelectedTags(List<Tag> tags) {
     _selectedTags.clear();
@@ -121,8 +124,8 @@ class TaskViewModel extends ChangeNotifier {
   // DELETE TASK
   Future<void> deleteTask(ObjectId taskId) async {
     await repository.deleteTask(taskId);
+    _tasks.removeWhere((task) => task.id == taskId);
     _applyFilters();
-    await loadTasks();
   }
 
   // DELETE TAG
@@ -138,7 +141,14 @@ class TaskViewModel extends ChangeNotifier {
 
   void setSearchQuery(String value) {
     _searchQuery = value;
-    _applyFilters();
+
+    if (_debounce?.isActive ?? false) {
+      _debounce!.cancel();
+    }
+
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      _applyFilters();
+    });
   }
 
   void toggleFilterTag(Tag tag) {
@@ -159,5 +169,11 @@ class TaskViewModel extends ChangeNotifier {
     );
 
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
   }
 }

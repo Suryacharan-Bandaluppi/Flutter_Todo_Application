@@ -108,7 +108,7 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final vm = context.watch<TaskViewModel>();
+    final vm = context.read<TaskViewModel>();
 
     return DraggableScrollableSheet(
       initialChildSize: 0.8,
@@ -236,7 +236,7 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
                           );
 
                           if (existingTag.name.isNotEmpty) {
-                            // Tag already exists - show snackbar
+                            // Tag already exists - show toast message
                             if (context.mounted) {
                               ToastUtil.error('Tag "$tagName" already exists');
                             }

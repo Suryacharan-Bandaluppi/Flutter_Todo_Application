@@ -7,28 +7,51 @@ import 'package:todo_application/view_models/task_viewmodel.dart';
 import 'package:todo_application/views/add_task_bottom_sheet.dart';
 import '../models/task.dart';
 
-// ignore: must_be_immutable
-class TaskCard extends StatefulWidget {
+class TaskCard extends StatelessWidget {
   final Task task;
-  final bool canEdited;
-  const TaskCard({super.key, required this.task, required this.canEdited});
+  final bool canEdit;
 
-  @override
-  State<TaskCard> createState() => _TaskCardState();
-}
+  const TaskCard({super.key, required this.task, required this.canEdit});
 
-class _TaskCardState extends State<TaskCard> {
-  bool get isCompleted => widget.task.isCompleted ?? false;
-  bool get hasTimeForDeadline =>
-      widget.task.deadline != null &&
-      DateTime.now().isBefore(widget.task.deadline!);
+  static final DateFormat _dateFormatter = DateFormat('MMM d, yyyy');
+
+  bool get isCompleted => task.isCompleted ?? false;
+
+  bool get hasTimeForDeadline {
+    if (task.deadline == null) return false;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final deadlineDate = DateTime(
+      task.deadline!.year,
+      task.deadline!.month,
+      task.deadline!.day,
+    );
+
+    return !deadlineDate.isBefore(today);
+  }
+
+  String _formatDeadline(DateTime deadline) {
+    final now = DateTime.now();
+
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(const Duration(days: 1));
+    final deadlineDate = DateTime(deadline.year, deadline.month, deadline.day);
+
+    if (deadlineDate == today) {
+      return "Today";
+    } else if (deadlineDate == tomorrow) {
+      return "Tomorrow";
+    } else {
+      return _dateFormatter.format(deadline);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final createdAt = DateFormat('MMM d, yyyy').format(widget.task.createdAt);
-
-    final deadline = widget.task.deadline != null
-        ? DateFormat('MMM d, yyyy').format(widget.task.deadline!)
+    final createdAt = _dateFormatter.format(task.createdAt);
+    final deadline = task.deadline != null
+        ? _formatDeadline(task.deadline!)
         : null;
 
     return Padding(
@@ -38,15 +61,18 @@ class _TaskCardState extends State<TaskCard> {
         children: [
           Row(
             children: [
-              Text(widget.task.title, style: AppTheme.titleStyle),
+              Expanded(child: Text(task.title, style: AppTheme.titleStyle)),
               const Spacer(),
-              if (widget.canEdited)
+              if (canEdit)
                 isCompleted
                     ? IconButton(
                         onPressed: () async {
                           await _showDeleteConfirmation(context);
                         },
-                        icon: Icon(Icons.delete, color: AppTheme.accentRed),
+                        icon: const Icon(
+                          Icons.delete,
+                          color: AppTheme.accentRed,
+                        ),
                       )
                     : IconButton(
                         onPressed: () => _showOptionsBottomSheet(context),
@@ -60,35 +86,19 @@ class _TaskCardState extends State<TaskCard> {
 
           const SizedBox(height: 6),
 
-          if (widget.task.description.isNotEmpty)
-            Text(widget.task.description, style: AppTheme.bodyStyle),
+          if (task.description.isNotEmpty)
+            Text(task.description, style: AppTheme.bodyStyle),
 
           const SizedBox(height: 10),
 
-          if (widget.task.tags.isNotEmpty)
+          if (task.tags.isNotEmpty)
             Wrap(
               spacing: 8,
               runSpacing: 6,
-              children: widget.task.tags
-                  .map(
-                    (tag) => Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryGreen,
-                        borderRadius: BorderRadius.circular(
-                          AppTheme.borderRadiusLarge,
-                        ),
-                      ),
-                      child: Text(
-                        tag.name.toUpperCase(),
-                        style: AppTheme.tagStyle,
-                      ),
-                    ),
-                  )
-                  .toList(),
+              children: List.generate(
+                task.tags.length,
+                (index) => TagChip(name: task.tags[index].name),
+              ),
             ),
 
           const SizedBox(height: 12),
@@ -99,39 +109,39 @@ class _TaskCardState extends State<TaskCard> {
               const SizedBox(width: 6),
               Text("Created at $createdAt", style: AppTheme.labelStyle),
               const Spacer(),
-              if (deadline != null) ...[
-                isCompleted
-                    ? Icon(
-                        Icons.check_circle_rounded,
-                        size: 14,
+              isCompleted
+                  ? const Icon(
+                      Icons.check_circle_rounded,
+                      size: 14,
+                      color: AppTheme.primaryGreen,
+                    )
+                  : Icon(
+                      Icons.calendar_month,
+                      size: 14,
+                      color: hasTimeForDeadline
+                          ? AppTheme.primaryGreen
+                          : AppTheme.accentRed,
+                    ),
+              const SizedBox(width: 6),
+              isCompleted
+                  ? const Text(
+                      "Completed",
+                      style: TextStyle(
                         color: AppTheme.primaryGreen,
-                      )
-                    : Icon(
-                        Icons.calendar_month,
-                        size: 14,
-                        color: AppTheme.accentRed,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
-                const SizedBox(width: 6),
-                isCompleted
-                    ? Text(
-                        "Completed",
-                        style: TextStyle(
-                          color: AppTheme.primaryGreen,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      )
-                    : Text(
-                        hasTimeForDeadline
-                            ? "Due: $deadline"
-                            : "Deadline Passed",
-                        style: const TextStyle(
-                          color: AppTheme.accentRed,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
+                    )
+                  : Text(
+                      hasTimeForDeadline ? "Due: $deadline" : "Deadline Passed",
+                      style: TextStyle(
+                        color: hasTimeForDeadline
+                            ? AppTheme.primaryGreen
+                            : AppTheme.accentRed,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
-              ],
+                    ),
             ],
           ),
 
@@ -145,10 +155,11 @@ class _TaskCardState extends State<TaskCard> {
 
   void _showOptionsBottomSheet(BuildContext context) {
     final vm = context.read<TaskViewModel>();
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (_) => Container(
+      builder: (context) => Container(
         decoration: const BoxDecoration(
           color: AppTheme.darkGreen,
           borderRadius: BorderRadius.vertical(
@@ -177,15 +188,13 @@ class _TaskCardState extends State<TaskCard> {
                   Icons.check_circle_rounded,
                   color: AppTheme.primaryGreen,
                 ),
-                title: Text(
+                title: const Text(
                   "Mark as Completed",
                   style: TextStyle(color: AppTheme.textWhite),
                 ),
                 onTap: () async {
                   Navigator.pop(context);
-                  setState(() {
-                    vm.toggleTaskCompletion(widget.task);
-                  });
+                  await vm.toggleTaskCompletion(task);
                 },
               ),
             if (!isCompleted)
@@ -201,7 +210,7 @@ class _TaskCardState extends State<TaskCard> {
                     context: context,
                     backgroundColor: Colors.transparent,
                     isScrollControlled: true,
-                    builder: (_) => AddTaskBottomSheet(taskToEdit: widget.task),
+                    builder: (context) => AddTaskBottomSheet(taskToEdit: task),
                   );
                 },
               ),
@@ -216,7 +225,6 @@ class _TaskCardState extends State<TaskCard> {
                 await _showDeleteConfirmation(context);
               },
             ),
-
             const SizedBox(height: 10),
           ],
         ),
@@ -226,6 +234,7 @@ class _TaskCardState extends State<TaskCard> {
 
   Future<void> _showDeleteConfirmation(BuildContext context) async {
     final vm = context.read<TaskViewModel>();
+
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -241,19 +250,14 @@ class _TaskCardState extends State<TaskCard> {
         ),
         actions: [
           OutlinedButton(
-            onPressed: () {
-              Navigator.pop(context, false);
-            },
+            onPressed: () => Navigator.pop(context, false),
             child: const Text(
               "Cancel",
               style: TextStyle(color: AppTheme.textWhite),
             ),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context, true);
-              ToastUtil.success("Task Deleted Successfully");
-            },
+            onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.accentRed,
             ),
@@ -266,8 +270,27 @@ class _TaskCardState extends State<TaskCard> {
       ),
     );
 
-    if (confirmed == true && widget.task.id != null) {
-      vm.deleteTask(widget.task.id!);
+    if (confirmed == true && task.id != null) {
+      await vm.deleteTask(task.id!);
+      ToastUtil.success("Task Deleted Successfully");
     }
+  }
+}
+
+class TagChip extends StatelessWidget {
+  final String name;
+
+  const TagChip({super.key, required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryGreen,
+        borderRadius: BorderRadius.circular(AppTheme.borderRadiusLarge),
+      ),
+      child: Text(name.toUpperCase(), style: AppTheme.tagStyle),
+    );
   }
 }
