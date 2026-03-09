@@ -41,14 +41,13 @@ class TaskViewModel extends ChangeNotifier {
     _applyFilters();
 
     // Load tags in background (don't block UI)
-    loadTags().then((_) => notifyListeners());
+    loadTags();
 
     _setLoading(false);
   }
 
   Future<void> loadTasks() async {
     _tasks = await repository.getAllTasks();
-    notifyListeners();
   }
 
   Future<void> loadTags() async {

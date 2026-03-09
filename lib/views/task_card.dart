@@ -61,7 +61,7 @@ class TaskCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: Text(task.title, style: AppTheme.titleStyle)),
+              Text(task.title, style: AppTheme.titleStyle),
               const Spacer(),
               if (canEdit)
                 isCompleted
@@ -109,39 +109,43 @@ class TaskCard extends StatelessWidget {
               const SizedBox(width: 6),
               Text("Created at $createdAt", style: AppTheme.labelStyle),
               const Spacer(),
-              isCompleted
-                  ? const Icon(
-                      Icons.check_circle_rounded,
-                      size: 14,
-                      color: AppTheme.primaryGreen,
-                    )
-                  : Icon(
-                      Icons.calendar_month,
-                      size: 14,
-                      color: hasTimeForDeadline
-                          ? AppTheme.primaryGreen
-                          : AppTheme.accentRed,
-                    ),
-              const SizedBox(width: 6),
-              isCompleted
-                  ? const Text(
-                      "Completed",
-                      style: TextStyle(
+              if (task.deadline != null) ...[
+                isCompleted
+                    ? const Icon(
+                        Icons.check_circle_rounded,
+                        size: 14,
                         color: AppTheme.primaryGreen,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    )
-                  : Text(
-                      hasTimeForDeadline ? "Due: $deadline" : "Deadline Passed",
-                      style: TextStyle(
+                      )
+                    : Icon(
+                        Icons.calendar_month,
+                        size: 14,
                         color: hasTimeForDeadline
                             ? AppTheme.primaryGreen
                             : AppTheme.accentRed,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
                       ),
-                    ),
+                const SizedBox(width: 6),
+                isCompleted
+                    ? const Text(
+                        "Completed",
+                        style: TextStyle(
+                          color: AppTheme.primaryGreen,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      )
+                    : Text(
+                        hasTimeForDeadline
+                            ? "Due: $deadline"
+                            : "Deadline Passed",
+                        style: TextStyle(
+                          color: hasTimeForDeadline
+                              ? AppTheme.primaryGreen
+                              : AppTheme.accentRed,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+              ],
             ],
           ),
 
