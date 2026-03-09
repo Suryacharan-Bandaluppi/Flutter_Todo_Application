@@ -9,6 +9,7 @@ class _Tag {
 
   @Indexed()
   late String name;
+  
 }
 
 @RealmModel()

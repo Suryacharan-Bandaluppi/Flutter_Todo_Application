@@ -1,12 +1,8 @@
 name: Flutter CI
 
 on:
-  pull_request:
-    branches:
-      - main
   push:
-    branches:
-      - main
+  pull_request:
 
 jobs:
   build:
@@ -19,7 +15,8 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.3'
+          flutter-version: "3.41.3"
+          cache: true
 
       - name: Install Dependencies
         run: flutter pub get
@@ -27,5 +24,55 @@ jobs:
       - name: Analyze Code
         run: flutter analyze
 
-      - name: Build Debug APK (PR safe build)
+      - name: Build Debug APK
         run: flutter build apk --debug
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+
+      - name: Comment APK Download Link
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runId = context.runId;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = context.issue.number;
+
+            const artifactUrl = "https://github.com/" + owner + "/" + repo + "/actions/runs/" + runId;
+
+            const body =
+              "### APK Preview Build\n\n" +
+              "The debug APK has been built successfully.\n\n" +
+              "Download it from the workflow artifacts:\n" +
+              artifactUrl;
+
+            const comments = await github.rest.issues.listComments({
+              owner: owner,
+              repo: repo,
+              issue_number: issue_number
+            });
+
+            const existing = comments.data.find(c =>
+              c.body.includes("APK Preview Build")
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: owner,
+                repo: repo,
+                comment_id: existing.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: owner,
+                repo: repo,
+                issue_number: issue_number,
+                body: body
+              });
+            }
