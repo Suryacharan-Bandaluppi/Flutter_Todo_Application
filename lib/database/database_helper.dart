@@ -143,7 +143,7 @@ class DatabaseHelper {
     if (query != null && query.isNotEmpty) {
       results = results.query(
         'title CONTAINS[c] \$0 OR description CONTAINS[c] \$0',
-        [query],
+        [query.trim()],
       );
     }
 
@@ -177,10 +177,21 @@ class DatabaseHelper {
       existingTask.title = task.title;
       existingTask.description = task.description;
       existingTask.deadline = task.deadline;
+      existingTask.isCompleted = task.isCompleted ?? existingTask.isCompleted;
       existingTask.tags.clear();
       for (final tag in realmTags) {
         existingTask.tags.add(tag);
       }
+    });
+  }
+
+  // UPDATE TASK COMPLETION STATUS
+  Future<void> updateTaskCompletion(ObjectId taskId, bool isCompleted) async {
+    final existingTask = realm.find<realm_db.Task>(taskId);
+    if (existingTask == null) return;
+
+    realm.write(() {
+      existingTask.isCompleted = isCompleted;
     });
   }
 

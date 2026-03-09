@@ -100,6 +100,16 @@ class AppTheme {
     );
   }
 
+  static ButtonStyle secondaryButtonStyle({
+    Color backgroundColor = textWhite54,
+    Color textColor = textBlack,
+  }) {
+    return ElevatedButton.styleFrom(
+      backgroundColor: backgroundColor,
+      foregroundColor: textColor,
+    );
+  }
+
   // Date Picker Theme
   static ThemeData datePickerTheme() {
     return ThemeData.light().copyWith(
