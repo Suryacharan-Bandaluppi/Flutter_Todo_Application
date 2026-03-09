@@ -1,6 +1,3 @@
-Here is a **simpler and more professional README.md**. It keeps the important information but removes unnecessary verbosity so it looks cleaner on GitHub.
-
----
 
 # 📋 Flutter To-Do Application
 
